@@ -43,14 +43,14 @@ void ActiveObject::stop()
         std::lock_guard<std::mutex> lock(queueMutex);
         if (!running)
         {
-            return; // Already stopped, do nothing
+            return;
         }
         running = false;
+        condition.notify_one();
     }
-    condition.notify_one(); // Wake up the worker thread if it's waiting
     if (workerThread.joinable())
     {
-        workerThread.join(); // Wait for the worker thread to finish
+        workerThread.join();
     }
 }
 

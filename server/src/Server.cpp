@@ -130,7 +130,7 @@ void Server::start()
     // Set the running flag to true
     {
         std::lock_guard<std::mutex> lock(runningMutex);
-        running = true;
+        running.store(true, std::memory_order_acquire);
     }
 
     // Start the pipeline
@@ -153,11 +153,11 @@ void Server::stop()
 {
     {
         std::lock_guard<std::mutex> lock(runningMutex);
-        if (!running)
+        if (!running.load(std::memory_order_acquire))
         {
             return; // Server is already stopped
         }
-        running = false;
+        running.store(false, std::memory_order_release);
     }
 
     {
