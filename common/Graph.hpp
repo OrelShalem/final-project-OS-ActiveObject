@@ -17,7 +17,7 @@ struct Edge
 class Graph
 {
 public:
-    Graph() : Graph(0) {} // בנאי ברירת מחדל שקורא לבנאי עם 0 צמתים
+    Graph() : Graph(0) {}
     Graph(int numVertices);
     void addEdge(int source, int destination, int weight);
     int addVertex();

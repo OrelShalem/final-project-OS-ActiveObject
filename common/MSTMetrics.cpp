@@ -17,12 +17,15 @@ using namespace std;
 int MSTMetrics::getTotalWeight(const std::vector<Edge> &mst) const
 {
     int total = 0;
+    if (mst.empty())
+    {
+        std::cout << "MST is empty" << std::endl;
+        return 0;
+    }
+
     for (const auto &edge : mst)
     {
-        if (edge.weight > 0)
-        {
-            total += edge.weight;
-        }
+        total += edge.weight;
     }
     return total;
 }

@@ -59,21 +59,31 @@ void ActiveObject::run()
 {
     while (true)
     {
+        // Declare a function object to hold the task
         std::function<void()> task;
         {
+            // Lock the queue mutex to safely access shared data
             std::unique_lock<std::mutex> lock(queueMutex);
+
+            // Wait until there's a task in the queue or the thread is stopped
             condition.wait(lock, [this]
                            { return !taskQueue.empty() || !running; });
+
+            // If the thread is stopped and there are no tasks, exit the loop
             if (!running && taskQueue.empty())
             {
                 break; // Exit the loop if stopped and no tasks left
             }
+
+            // If there's a task in the queue, move it to our local variable
             if (!taskQueue.empty())
             {
                 task = std::move(taskQueue.front());
                 taskQueue.pop();
             }
-        }
+        } // The lock is released here
+
+        // If we got a task, execute it
         if (task)
         {
             try
@@ -82,10 +92,12 @@ void ActiveObject::run()
             }
             catch (const std::exception &e)
             {
+                // Handle any standard exceptions
                 std::cerr << "Exception in task execution: " << e.what() << std::endl;
             }
             catch (...)
             {
+                // Handle any other types of exceptions
                 std::cerr << "Unknown exception in task execution" << std::endl;
             }
         }

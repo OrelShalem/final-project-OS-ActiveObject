@@ -2,6 +2,7 @@
 #include <vector>
 #include "Graph.hpp"
 
+// Abstract class for Minimum Spanning Tree algorithms
 class MST
 {
 public:

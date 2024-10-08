@@ -4,13 +4,17 @@
 #include <iostream>
 #include <mutex>
 
+// This line declares an external mutex named 'coutMutex'
+// It's used to synchronize access to std::cout across multiple threads
+// By declaring it as extern, we're indicating that this mutex is defined elsewhere
+// (likely in another source file) and we're just referencing it here
 extern std::mutex coutMutex;
 
 // The Pipeline class manages the processing of graph-related tasks using Active Objects
 Pipeline::Pipeline(GraphManager &gm) : graphManager(gm)
 {
     // Initialize the pipeline with multiple Active Objects
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 5; ++i)
     {
         activeObjects.push_back(std::make_unique<ActiveObject>());
     }
@@ -45,6 +49,7 @@ void Pipeline::calculateMetrics(const Graph &graph, const std::vector<Edge> &mst
     activeObjects[0]->enqueue([this, graph, mst, responseCallback]()
                               {
         try {
+            // Log initial information about the graph and MST
             {
                 std::lock_guard<std::mutex> lock(coutMutex);
                 std::cout << "Calculating metrics" << std::endl;
@@ -52,6 +57,7 @@ void Pipeline::calculateMetrics(const Graph &graph, const std::vector<Edge> &mst
                 std::cout << "MST edges: " << mst.size() << std::endl;
             }
 
+            // Check if the MST is valid
             if (mst.empty() || graph.getVertices() < 2)
             {
                 std::lock_guard<std::mutex> lock(coutMutex);
@@ -75,38 +81,41 @@ void Pipeline::calculateMetrics(const Graph &graph, const std::vector<Edge> &mst
             {
                 MSTMetrics metrics;
                 int totalWeight = metrics.getTotalWeight(mst);
-                int longestDistance = metrics.getLongestDistance(graph, mst);
+                
                 
                 // Use the third Active Object to calculate shortest and average distance
-                activeObjects[2]->enqueue([this, graph, mst, totalWeight, longestDistance, responseCallback]()
+                activeObjects[2]->enqueue([this, graph, mst, totalWeight, responseCallback]()
                 {
                     MSTMetrics metrics;
-                    int shortestDistance = metrics.getShortestDistance(mst);
-                    double averageDistance = metrics.getAverageDistance(graph, mst);
+                    int longestDistance = metrics.getLongestDistance(graph, mst);
+                    
+                    activeObjects[3]->enqueue([this, graph, mst , totalWeight, longestDistance, responseCallback]()
+                    {   
+                        MSTMetrics metrics;
+                        int shortestDistance = metrics.getShortestDistance(mst);
+                        
+                        activeObjects[4]->enqueue([this, graph, mst , totalWeight, longestDistance, shortestDistance, responseCallback]()
+                        {   
+                            MSTMetrics metrics;
+                            double averageDistance = metrics.getAverageDistance(graph, mst);
+                            
+                            // Prepare the response string with calculated metrics
+                            std::stringstream ss;
+                            ss << "MST Metrics:\n";
+                            ss << "Total Weight: " << totalWeight << "\n";
+                            ss << "Longest Distance: " << longestDistance << "\n";
+                            ss << "Shortest Distance: " << shortestDistance << "\n";
+                            ss << "Average Distance: " << averageDistance << "\n";
 
-                    // Log calculated metrics
-                    {
-                        std::lock_guard<std::mutex> lock(coutMutex);
-                        std::cout << "Total weight: " << totalWeight << std::endl;
-                        std::cout << "Longest distance: " << longestDistance << std::endl;
-                        std::cout << "Shortest distance: " << shortestDistance << std::endl;
-                        std::cout << "Average distance: " << averageDistance << std::endl;
-                    }
-
-                    // Prepare the response string with calculated metrics
-                    std::stringstream ss;
-                    ss << "MST Metrics:\n";
-                    ss << "Total Weight: " << totalWeight << "\n";
-                    ss << "Longest Distance: " << longestDistance << "\n";
-                    ss << "Shortest Distance: " << shortestDistance << "\n";
-                    ss << "Average Distance: " << averageDistance << "\n";
-
-                    // Log and send the response
-                    {
-                        std::lock_guard<std::mutex> lock(coutMutex);
-                        std::cout << "Sending response" << std::endl;
-                    }
-                    responseCallback(ss.str());
+                            // Log and send the response
+                            {
+                                std::lock_guard<std::mutex> lock(coutMutex);
+                                std::cout << "Sending response" << std::endl;
+                            }
+                            responseCallback(ss.str());
+                    
+                        });
+                    });
                 });
             });
         } catch (const std::exception& e) {
@@ -120,13 +129,13 @@ void Pipeline::calculateMetrics(const Graph &graph, const std::vector<Edge> &mst
         } });
 }
 
-// Helper function to format metrics as a string
-std::string Pipeline::getMetricsString(const MSTMetrics &metrics, const Graph &graph, const std::vector<Edge> &mst)
-{
-    std::stringstream ss;
-    ss << "Total Weight: " << metrics.getTotalWeight(mst) << "\n";
-    ss << "Longest Distance: " << metrics.getLongestDistance(graph, mst) << "\n";
-    ss << "Shortest Distance: " << metrics.getShortestDistance(mst) << "\n";
-    ss << "Average Distance: " << metrics.getAverageDistance(graph, mst) << "\n";
-    return ss.str();
-}
+// // Helper function to format metrics as a string
+// std::string Pipeline::getMetricsString(const MSTMetrics &metrics, const Graph &graph, const std::vector<Edge> &mst)
+// {
+//     std::stringstream ss;
+//     ss << "Total Weight: " << metrics.getTotalWeight(mst) << "\n";
+//     ss << "Longest Distance: " << metrics.getLongestDistance(graph, mst) << "\n";
+//     ss << "Shortest Distance: " << metrics.getShortestDistance(mst) << "\n";
+//     ss << "Average Distance: " << metrics.getAverageDistance(graph, mst) << "\n";
+//     return ss.str();
+// }

@@ -15,6 +15,10 @@ public:
     void removeEdge(int source, int destination);
     std::shared_ptr<Graph> getGraph() const;
     std::string getGraphString() const;
+    bool changeWeight(int source, int destination, int newWeight);
+    std::vector<Edge> getAdjacentEdges(int vertex) const;
+    int getVertices() const;
+    int getEdges() const;
     ~GraphManager();
 
 private:

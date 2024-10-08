@@ -19,6 +19,5 @@ public:
 private:
     std::vector<std::unique_ptr<ActiveObject>> activeObjects;
     GraphManager &graphManager;
-
-    std::string getMetricsString(const MSTMetrics &metrics, const Graph &graph, const std::vector<Edge> &mst);
+    // std::string getMetricsString(const MSTMetrics &metrics, const Graph &graph, const std::vector<Edge> &mst);
 };

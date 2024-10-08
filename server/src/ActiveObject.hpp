@@ -21,6 +21,5 @@ private:
     std::condition_variable condition;
     std::thread workerThread;
     bool running;
-
     void run();
 };

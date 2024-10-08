@@ -6,7 +6,7 @@
 #include "KruskalMST.hpp"
 
 using namespace std;
-
+// Factory class for creating MST objects
 class MSTFactory
 {
 public:

@@ -12,6 +12,7 @@
 #include <functional>
 #include <cstring>
 #include <mutex>
+#include <chrono>
 
 // External declarations for global variables
 extern std::atomic<bool> shutdownRequested;
@@ -75,12 +76,16 @@ void Server::start()
             std::lock_guard<std::mutex> lock(coutMutex);
             std::cout << "Address already in use. Attempting to kill the process..." << std::endl;
 
-            std::string killCommand = "sudo kill $(sudo lsof -t -i:" + std::to_string(port) + ")";
+            // Use fuser command to kill the process
+            std::string killCommand = "sudo fuser -k " + std::to_string(port) + "/tcp";
             int result = system(killCommand.c_str());
 
             if (result == 0)
             {
-                std::cout << "Successfully killed the process. Retrying to bind..." << std::endl;
+                std::cout << "Successfully killed the process. Waiting briefly before retrying..." << std::endl;
+                // Wait for a short time to ensure the port is released
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+
                 if (bind(serverSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) == 0)
                 {
                     std::cout << "Successfully bound to the address after killing the previous process." << std::endl;
@@ -215,28 +220,39 @@ void Server::handleClient(int clientSocket)
     }
 
     char buffer[1024] = {0};
+    // Main loop for handling client messages
     while (running.load(std::memory_order_acquire))
     {
+        // Read data from the client socket
         int valread = read(clientSocket, buffer, 1024);
+
+        // Check if the client has disconnected or if there was an error reading
         if (valread <= 0)
         {
+            // Log the disconnection or error
             std::lock_guard<std::mutex> lock(coutMutex);
             std::cout << "Client disconnected or error reading" << std::endl;
-            break;
+            break; // Exit the loop if the client has disconnected
         }
 
+        // Convert the received buffer to a string
         std::string message(buffer);
+
+        // Log the received message
         {
             std::lock_guard<std::mutex> lock(coutMutex);
             std::cout << "Received message from client: " << message << std::endl;
         }
 
+        // Parse the command from the message
         std::istringstream iss(message);
         std::string command;
-        iss >> command;
+        iss >> command; // Extract the first word as the command
 
+        // Lambda function to send a response to the client
         auto sendResponse = [clientSocket, this](const std::string &response)
         {
+            // Log the response before sending
             {
                 std::lock_guard<std::mutex> lock(coutMutex);
                 std::cout << "Sending response: " << response << std::endl;
@@ -288,7 +304,7 @@ void Server::handleClient(int clientSocket)
 
                     // Calculate metrics using the pipeline
                     // MARK: Using pipeline here
-                    pipeline.calculateMetrics(*graph, mst, sendResponse);
+                    // pipeline.calculateMetrics(*graph, mst, sendResponse);
                 }
                 else
                 {
@@ -373,19 +389,24 @@ void Server::handleClient(int clientSocket)
             }
             else
             {
+                // Determine the MST algorithm to use (default is Kruskal's)
                 std::string algorithm = (command == "calculate_mst" && iss >> algorithm) ? algorithm : "kruskal";
+
+                // Validate the chosen algorithm
                 if (algorithm != "prim" && algorithm != "kruskal")
                 {
                     sendResponse("Invalid algorithm. Use 'prim' or 'kruskal'.");
                     continue;
                 }
 
+                // Log the algorithm and graph information (thread-safe)
                 {
                     std::lock_guard<std::mutex> lock(coutMutex);
                     std::cout << "Calculating MST using " << algorithm << " algorithm" << std::endl;
                     std::cout << "Graph vertices: " << graph->getVertices() << std::endl;
                 }
 
+                // Create an MST calculator based on the chosen algorithm
                 auto mstCalculator = MSTFactory::createMST(algorithm);
                 if (!mstCalculator)
                 {
@@ -393,29 +414,36 @@ void Server::handleClient(int clientSocket)
                     continue;
                 }
 
+                // Calculate the Minimum Spanning Tree
                 auto mst = mstCalculator->findMST(*graph);
+
+                // Log the number of edges in the MST (thread-safe)
                 {
                     std::lock_guard<std::mutex> lock(coutMutex);
                     std::cout << "MST edges: " << mst.size() << std::endl;
                 }
 
+                // Convert the MST to a string representation and send it to the client
                 std::string mstStr = getMSTString(mst, algorithm);
                 sendResponse("Minimum Spanning Tree:\n" + mstStr);
 
                 // Calculate metrics using the pipeline
                 try
                 {
+                    // Use a lambda function to send the calculated metrics back to the client
                     pipeline.calculateMetrics(*graph, mst, [this, &sendResponse](const std::string &metricsStr)
                                               { sendResponse("MST Metrics:\n" + metricsStr); });
                 }
                 catch (const std::exception &e)
                 {
+                    // Handle specific exceptions (thread-safe)
                     std::lock_guard<std::mutex> lock(coutMutex);
                     std::cerr << "Error calculating metrics: " << e.what() << std::endl;
                     sendResponse("Error calculating metrics: " + std::string(e.what()));
                 }
                 catch (...)
                 {
+                    // Handle any other unexpected exceptions (thread-safe)
                     std::lock_guard<std::mutex> lock(coutMutex);
                     std::cerr << "Unknown error occurred while calculating metrics" << std::endl;
                     sendResponse("Unknown error occurred while calculating metrics");
