@@ -77,11 +77,3 @@ Once connected, the client can send various commands to the server:
 - `help`: Show available commands
 - `quit`: Exit the program
 
-## Contributing
-
-[Include guidelines for contributing to your project, if applicable]
-
-## License
-
-[Specify the license under which your project is released]
-
