@@ -77,3 +77,55 @@ Once connected, the client can send various commands to the server:
 - `help`: Show available commands
 - `quit`: Exit the program
 
+#########################################################################
+FLOW OF THE PROGRAM
+#########################################################################
+
++-------------+     HTTP     +------------------------+
+|   Clients   | <----------> |         Server         |
++-------------+              +------------------------+
+                             | - m_activeObjects: vec |
+                             | - m_threadPool         |
+                             +------------------------+
+                             | + handleRequest()      |
+                             | + processImage()       |
+                             +------------------------+
+                                         |
+                                         | creates & manages
+                                         v
+                            +--------------------+  
+                            |    ActiveObject    | 
+                            +--------------------+    
+                            | - m_pipeline       |      
+                            | - m_stop: atomic   |       
+                            +--------------------+      
+                            | + start()          |       
+                            | + stop()           |        
+                            | - run()            |       
+                            +--------------------+
+                                        |
+                                        | uses
+                                        v
+                            +--------------------+
+                            |      Pipeline      |
+                            +--------------------+
+                            | - m_queue: SafeQueue|
+                            +--------------------+
+                            | + push()           |
+                            | + pop()            |
+                            | + tryPop()         |
+                            +--------------------+
+                                        |
+                                        | uses
+                                        v
+                            +--------------------+
+                            |     SafeQueue      |
+                            +--------------------+
+                            | - m_queue: queue   |
+                            | - m_mutex: mutex   |
+                            | - m_cond: cond_var |
+                            +--------------------+
+                            | + push()           |
+                            | + pop()            |
+                            | + tryPop()         |
+                            +--------------------+
